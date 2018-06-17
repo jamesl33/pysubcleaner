@@ -61,23 +61,25 @@ class SubtitleCleaner():
         Args:
             full_path (str): The path to the subtitle file.
         """
-
-        universal_detector = UniversalDetector()
-
-        for line in open(full_path, 'rb'):
-            line = bytearray(line)
-            universal_detector.feed(line)
-
-            if universal_detector.done:
-                break
-
-        universal_detector.close()
-
         try:
-            return pysrt.open(full_path, universal_detector.result['encoding'])
+            return pysrt.open(full_path)
         except UnicodeDecodeError:
-            print('Error: Unable to open subtitle file')
-            exit(1)
+            universal_detector = UniversalDetector()
+
+            for line in open(full_path, 'rb'):
+                line = bytearray(line)
+                universal_detector.feed(line)
+
+                if universal_detector.done:
+                    break
+
+            universal_detector.close()
+
+            try:
+                return pysrt.open(full_path, universal_detector.result['encoding'])
+            except UnicodeDecodeError:
+                print('Error: Unable to open subtitle file')
+                exit(1)
 
     @classmethod
     def _get_subtitle_files(cls, full_path):
