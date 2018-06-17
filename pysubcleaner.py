@@ -13,7 +13,14 @@ from chardet.universaldetector import UniversalDetector
 
 
 class SubtitleCleaner():
+    """Clean subtitle files by removing adverts and unwanted notifications"""
     def clean_subtitles(self, full_path):
+        """Clean adverts/unwanted subtitles from subtitle files or a folder
+        containing several subtitle files.
+
+        Args:
+            full_path (str): The path to a file/folder to clean.
+        """
         if os.path.isdir(full_path):
             for subtitle_file in self._get_subtitle_files(full_path):
                 self._clean_subtitle_file(subtitle_file)
@@ -24,6 +31,11 @@ class SubtitleCleaner():
             exit(1)
 
     def _clean_subtitle_file(self, full_path):
+        """Clean adverts/unwanted subtitles from a subtitle file.
+
+        Args:
+            full_path (str): The path to the subtitle file.
+        """
         marked = []
         adverts = self._get_regex('cleaner.regex')
         subtitles = self._open_sub_file(full_path)
@@ -42,7 +54,14 @@ class SubtitleCleaner():
             subtitles.clean_indexes()
             subtitles.save(full_path)
 
-    def _open_sub_file(self, full_path):
+    @classmethod
+    def _open_sub_file(cls, full_path):
+        """Automatically detect the encoding for a subtitle file and load it.
+
+        Args:
+            full_path (str): The path to the subtitle file.
+        """
+
         universal_detector = UniversalDetector()
 
         for line in open(full_path, 'rb'):
@@ -55,12 +74,21 @@ class SubtitleCleaner():
         universal_detector.close()
 
         try:
-            return (pysrt.open(full_path, universal_detector.result['encoding']))
+            return pysrt.open(full_path, universal_detector.result['encoding'])
         except UnicodeDecodeError:
             print('Error: Unable to open subtitle file')
             exit(1)
 
-    def _get_subtitle_files(self, full_path):
+    @classmethod
+    def _get_subtitle_files(cls, full_path):
+        """Recursively search through a folder for subtitle files.
+
+        Args:
+            full_path (str): The path to a folder containing subtitle files.
+
+        Returns:
+            (list): A list of paths to subtitle files.
+        """
         subtitles = []
         for dirpath, _, filenames in os.walk(full_path):
             for file_name in filenames:
@@ -69,12 +97,22 @@ class SubtitleCleaner():
         return subtitles
 
     @classmethod
-    def _get_regex(cls, file_name):
-        with open(file_name) as file:
+    def _get_regex(cls, full_path):
+        """Load all of the regex definitions from 'cleaner.regex' which will be used to
+        search for adverts/unwanted subtitles.
+
+        Args:
+            full_path (str): The path to the file containing regex definitions.
+
+        Returns:
+            (list): List containing all the regex definitions found.
+        """
+        with open(full_path) as file:
             return [regex.rstrip() for regex in file.readlines()]
 
 
 def main():
+    """Main driver code containing the command line user interface"""
     parser = argparse.ArgumentParser(
         description='remove unwanted subtitles from subtitle files'
     )
