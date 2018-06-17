@@ -13,47 +13,60 @@ from chardet.universaldetector import UniversalDetector
 
 
 class SubtitleCleaner():
-    def __init__(self, input_file):
-        self.input_file = input_file
-
-        if os.path.isfile(input_file) and os.path.splitext(input_file)[-1] == '.srt':
-            universal_detector = UniversalDetector()
-
-            for line in open(input_file, 'rb'):
-                line = bytearray(line)
-                universal_detector.feed(line)
-
-                if universal_detector.done:
-                    break
-
-            universal_detector.close()
-
-            try:
-                self.subtitles = pysrt.open(input_file, universal_detector.result['encoding'])
-            except UnicodeDecodeError:
-                print('Error: Unable to open subtitle file')
-                exit(1)
-
+    def clean_subtitles(self, full_path):
+        if os.path.isdir(full_path):
+            for subtitle_file in self._get_subtitle_files(full_path):
+                self._clean_subtitle_file(subtitle_file)
+        elif os.path.splitext(full_path)[-1] == '.srt':
+            self._clean_subtitle_file(full_path)
         else:
             print('Error: File doesn\'t exist or isn\'t a subtitle file')
             exit(1)
 
-    def clean_subtitles(self):
+    def _clean_subtitle_file(self, full_path):
         marked = []
         adverts = self._get_regex('cleaner.regex')
+        subtitles = self._open_sub_file(full_path)
 
-        for index, subtitle in enumerate(self.subtitles):
+        for index, subtitle in enumerate(subtitles):
             for advert in adverts:
                 result = re.search(re.compile(advert, flags=re.IGNORECASE), subtitle.text)
 
                 if result:
                     marked.append(index)
 
-        for index in sorted(list(set(marked)), reverse=True):
-            del self.subtitles[index]
+        if marked:
+            for index in sorted(list(set(marked)), reverse=True):
+                del subtitles[index]
 
-        self.subtitles.clean_indexes()
-        self.subtitles.save(self.input_file)
+            subtitles.clean_indexes()
+            subtitles.save(full_path)
+
+    def _open_sub_file(self, full_path):
+        universal_detector = UniversalDetector()
+
+        for line in open(full_path, 'rb'):
+            line = bytearray(line)
+            universal_detector.feed(line)
+
+            if universal_detector.done:
+                break
+
+        universal_detector.close()
+
+        try:
+            return (pysrt.open(full_path, universal_detector.result['encoding']))
+        except UnicodeDecodeError:
+            print('Error: Unable to open subtitle file')
+            exit(1)
+
+    def _get_subtitle_files(self, full_path):
+        subtitles = []
+        for dirpath, _, filenames in os.walk(full_path):
+            for file_name in filenames:
+                if os.path.splitext(file_name)[-1] == '.srt':
+                    subtitles.append(os.path.join(dirpath, file_name))
+        return subtitles
 
     @classmethod
     def _get_regex(cls, file_name):
@@ -67,16 +80,16 @@ def main():
     )
 
     parser.add_argument(
-        'file',
+        'folder',
         action='store',
-        help='the subtitle file that you want to clean',
+        help='input folder/file which you want to clean',
         type=str
     )
 
     arguments = parser.parse_args()
 
-    subtile_cleaner = SubtitleCleaner(arguments.file)
-    subtile_cleaner.clean_subtitles()
+    subtile_cleaner = SubtitleCleaner()
+    subtile_cleaner.clean_subtitles(arguments.folder)
 
 
 if __name__ == '__main__':
